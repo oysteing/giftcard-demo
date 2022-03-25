@@ -24,6 +24,8 @@ import io.axoniq.demo.giftcard.api.RedeemCardCommand;
 import org.axonframework.axonserver.connector.ErrorCode;
 import org.axonframework.commandhandling.CommandExecutionException;
 import org.axonframework.commandhandling.gateway.CommandGateway;
+import org.axonframework.config.EventProcessingConfiguration;
+import org.axonframework.eventhandling.StreamingEventProcessor;
 import org.axonframework.queryhandling.QueryGateway;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,12 +47,14 @@ public class GiftCardUI extends UI {
 
     private final CommandGateway commandGateway;
     private final QueryGateway queryGateway;
+    private final EventProcessingConfiguration processingConfiguration;
     private CardSummaryDataProvider cardSummaryDataProvider;
     private ScheduledFuture<?> updaterThread;
 
-    public GiftCardUI(CommandGateway commandGateway, QueryGateway queryGateway) {
+    public GiftCardUI(CommandGateway commandGateway, QueryGateway queryGateway, EventProcessingConfiguration processingConfiguration) {
         this.commandGateway = commandGateway;
         this.queryGateway = queryGateway;
+        this.processingConfiguration = processingConfiguration;
     }
 
     @Override
@@ -142,30 +146,13 @@ public class GiftCardUI extends UI {
         Panel panel = new Panel("Bulk issue cards");
 
         submit.addClickListener(evt -> {
-            submit.setEnabled(false);
-            new BulkIssuer(
-                    commandGateway,
-                    Integer.parseInt(number.getValue()),
-                    Integer.parseInt(amount.getValue()),
-                    bulkIssuer -> access(() -> {
-                        if (bulkIssuer.getRemaining().get() == 0) {
-                            submit.setEnabled(true);
-                            panel.setCaption("Bulk issue cards");
-                            Notification.show("Bulk issue card completed", Notification.Type.HUMANIZED_MESSAGE)
-                                        .addCloseListener(e -> cardSummaryDataProvider.refreshAll());
-                        } else {
-                            panel.setCaption(String.format(
-                                    "Progress: %d suc, %d fail, %d rem",
-                                    bulkIssuer.getSuccess().get(),
-                                    bulkIssuer.getError().get(),
-                                    bulkIssuer.getRemaining().get()
-                            ));
-                            cardSummaryDataProvider.refreshAll();
-                        }
-                    })
-            );
+            processingConfiguration.eventProcessor("card-summary", StreamingEventProcessor.class)
+                    .ifPresent(streamingProcessor -> {
+                        streamingProcessor.shutDown();
+                        streamingProcessor.resetTokens();
+                        streamingProcessor.start();
+                    });
         });
-
         FormLayout form = new FormLayout();
         form.addComponents(number, amount, submit);
         form.setMargin(true);

@@ -7,6 +7,7 @@ import io.axoniq.demo.giftcard.api.CountCardSummariesQuery;
 import io.axoniq.demo.giftcard.api.CountCardSummariesResponse;
 import io.axoniq.demo.giftcard.api.CountChangedUpdate;
 import io.axoniq.demo.giftcard.api.FetchCardSummariesQuery;
+import org.axonframework.eventhandling.ReplayStatus;
 import org.axonframework.queryhandling.QueryUpdateEmitter;
 import org.junit.jupiter.api.*;
 
@@ -33,7 +34,7 @@ class CardSummaryProjectionTest {
         String testId = "001";
         int testAmount = 1377;
 
-        testSubject.on(new CardIssuedEvent(testId, testAmount));
+        testSubject.on(new CardIssuedEvent(testId, testAmount), ReplayStatus.REGULAR);
 
         List<CardSummary> results = testSubject.handle(new FetchCardSummariesQuery(0, 100));
         assertEquals(1, results.size());
@@ -50,7 +51,7 @@ class CardSummaryProjectionTest {
         String testId = "001";
         int testAmount = 1377;
         int testRedeemAmount = 42;
-        testSubject.on(new CardIssuedEvent(testId, testAmount));
+        testSubject.on(new CardIssuedEvent(testId, testAmount), ReplayStatus.REGULAR);
 
         testSubject.on(new CardRedeemedEvent(testId, testRedeemAmount));
 
@@ -68,11 +69,11 @@ class CardSummaryProjectionTest {
     void testFetchCardSummariesQueryReturnsAllCardSummaries() {
         String testId = "001";
         int testAmount = 1377;
-        testSubject.on(new CardIssuedEvent(testId, testAmount));
+        testSubject.on(new CardIssuedEvent(testId, testAmount), ReplayStatus.REGULAR);
 
         String otherTestId = "002";
         int otherTestAmount = 42;
-        testSubject.on(new CardIssuedEvent(otherTestId, otherTestAmount));
+        testSubject.on(new CardIssuedEvent(otherTestId, otherTestAmount), ReplayStatus.REGULAR);
 
         List<CardSummary> results = testSubject.handle(new FetchCardSummariesQuery(0, 100));
         assertEquals(2, results.size());
@@ -93,9 +94,9 @@ class CardSummaryProjectionTest {
         String testId = "001";
         int testAmount = 1377;
         // first entry
-        testSubject.on(new CardIssuedEvent(testId, testAmount));
+        testSubject.on(new CardIssuedEvent(testId, testAmount), ReplayStatus.REGULAR);
         // second entry
-        testSubject.on(new CardIssuedEvent("002", 42));
+        testSubject.on(new CardIssuedEvent("002", 42), ReplayStatus.REGULAR);
 
         List<CardSummary> results = testSubject.handle(new FetchCardSummariesQuery(0, 1));
         assertEquals(1, results.size());
@@ -110,9 +111,9 @@ class CardSummaryProjectionTest {
         String testId = "002";
         int testAmount = 1377;
         // first entry
-        testSubject.on(new CardIssuedEvent("001", 42));
+        testSubject.on(new CardIssuedEvent("001", 42), ReplayStatus.REGULAR);
         // second entry
-        testSubject.on(new CardIssuedEvent(testId, testAmount));
+        testSubject.on(new CardIssuedEvent(testId, testAmount), ReplayStatus.REGULAR);
 
         List<CardSummary> results = testSubject.handle(new FetchCardSummariesQuery(1, 1));
         assertEquals(1, results.size());
@@ -126,7 +127,7 @@ class CardSummaryProjectionTest {
     void testCountCardSummariesQueryReturnsNumberOfCardSummaryEntries() {
         int expectedCount = 10;
         IntStream.range(0, expectedCount)
-                 .forEach(i -> testSubject.on(new CardIssuedEvent(UUID.randomUUID().toString(), i)));
+                 .forEach(i -> testSubject.on(new CardIssuedEvent(UUID.randomUUID().toString(), i), ReplayStatus.REGULAR));
 
         CountCardSummariesResponse result = testSubject.handle(new CountCardSummariesQuery());
         assertEquals(expectedCount, result.getCount());

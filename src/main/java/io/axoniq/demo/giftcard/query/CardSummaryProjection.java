@@ -8,12 +8,17 @@ import io.axoniq.demo.giftcard.api.CountCardSummariesResponse;
 import io.axoniq.demo.giftcard.api.CountChangedUpdate;
 import io.axoniq.demo.giftcard.api.FetchCardSummariesQuery;
 import org.axonframework.config.ProcessingGroup;
+import org.axonframework.eventhandling.DisallowReplay;
 import org.axonframework.eventhandling.EventHandler;
+import org.axonframework.eventhandling.ReplayStatus;
 import org.axonframework.queryhandling.QueryHandler;
 import org.axonframework.queryhandling.QueryUpdateEmitter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
+import java.lang.invoke.MethodHandles;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -26,6 +31,8 @@ import java.util.stream.Collectors;
 @ProcessingGroup("card-summary")
 public class CardSummaryProjection {
 
+    private final static Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
     private final SortedMap<String, CardSummary> cardSummaryReadModel;
     private final QueryUpdateEmitter queryUpdateEmitter;
 
@@ -37,7 +44,8 @@ public class CardSummaryProjection {
     }
 
     @EventHandler
-    public void on(CardIssuedEvent event) {
+    public void on(CardIssuedEvent event, ReplayStatus replayStatus) {
+        logger.debug(event.getClass() + " handler called with replayStatus=" + replayStatus);
         /*
          * Update our read model by inserting the new card. This is done so that upcoming regular
          * (non-subscription) queries get correct data.
@@ -53,7 +61,9 @@ public class CardSummaryProjection {
     }
 
     @EventHandler
+    @DisallowReplay
     public void on(CardRedeemedEvent event) {
+        logger.debug(event.getClass() + " with @DisallowReplay handler called");
         /*
          * Update our read model by updating the existing card. This is done so that upcoming regular
          * (non-subscription) queries get correct data.
